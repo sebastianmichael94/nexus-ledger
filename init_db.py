@@ -1,33 +1,40 @@
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
-from ledger_worker.models import UserProfile, Wallet, UserAnalytics
+from datetime import datetime
 
-async def init_database():
-    # 1. Connect to MongoDB (Standard port from our Docker setup)
+async def initialize_database():
+    # 1. Connect to MongoDB
     client = AsyncIOMotorClient("mongodb://localhost:27017")
     db = client["nexus_db"]
     collection = db["profiles"]
 
-    # 2. Create a dummy user profile
-    # Note: In a real app, this would happen during 'Sign Up'
-    new_user = UserProfile(
-        user_id="USER_001",
-        name="Sebastian Michael",
-        email="sebastian.michael94@gmail.com",
-        wallet=Wallet(balance=5000.0), # Starting with $5000
-        analytics=UserAnalytics()
-    )
+    # 2. Define the Fresh User Data
+    default_user = {
+        "user_id": "USER_001",
+        "name": "Sebastian Michael",
+        "email": "sebastian.michael94@gmail.com",
+        "kyc_status": "Verified",
+        "wallet": {
+            "balance": 5000.0,
+            "currency": "USD",
+            "last_updated": datetime.now()
+        },
+        "analytics": {
+            "total_spent": 0.0,
+            "favorite_category": "None"
+        },
+        "recent_transactions": []
+    }
 
-    # 3. Insert into MongoDB
-    # We use 'model_dump' to convert the Pydantic object to a Dictionary for Mongo
-    result = await collection.update_one(
-        {"user_id": new_user.user_id}, 
-        {"$set": new_user.model_dump()}, 
-        upsert=True
-    )
+    # 3. Wipe and Re-insert
+    print("🧹 Cleaning up old data...")
+    await collection.delete_many({"user_id": "USER_001"})
     
-    print(f"User Initialized! ID: {new_user.user_id}")
+    print("🏦 Inserting fresh ledger for USER_001...")
+    await collection.insert_one(default_user)
+    
+    print("✅ Success: Database Reset to $5000.00")
     client.close()
 
 if __name__ == "__main__":
-    asyncio.run(init_database())
+    asyncio.run(initialize_database())

@@ -26,4 +26,4 @@ async def send_transaction(user_id, amount, category):
 
 if __name__ == "__main__":
     # Let's simulate a $50.00 Coffee purchase
-    asyncio.run(send_transaction("USER_001", 50.0, "Food & Drinks"))
+    asyncio.run(send_transaction("USER_001", 10000.0, "Rent"))

@@ -24,16 +24,49 @@ async def consume_transactions():
             data = json.loads(msg.value.decode('utf-8'))
             user_id = data['user_id']
             amount = data['amount']
+            category = data.get('category', 'General')
             
-            print(f"Processing payment: {user_id} spent ${amount}")
+            print(f"Processing payment: {user_id} spent ${amount} on {category}")
+
+            # --- NEW: BALANCE CHECK ---
+            user_doc = await collection.find_one({"user_id": user_id})
+            
+            if not user_doc:
+                print(f"User {user_id} not found!")
+                continue
+
+            current_balance = user_doc['wallet']['balance']
+
+            if current_balance < amount:
+                print(f"REJECTED: {user_id} has ${current_balance}, but tried to spend ${amount}")
+                #Push a "FAILED" transaction to history
+                await collection.update_one(
+                    {"user_id": user_id},
+                    {"$push": {"recent_transactions": {"$each": [{"amount": amount, "category": category, "status": "FAILED"}], "$slice": -10}}}
+                )
+                continue
+            # --- END OF CHECK ---
 
             # 3. Update MongoDB (Decrease balance, Increase total_spent)
+            transaction_record = {
+                "amount": amount,
+                "category": category,
+                "timestamp": data.get('timestamp'),
+                "status": "SUCCESS"
+            }
+
             await collection.update_one(
                 {"user_id": user_id},
                 {
                     "$inc": {
-                        "wallet.balance": -amount,  # Subtract from balance
-                        "analytics.total_spent": amount # Add to total spent
+                        "wallet.balance": -amount,
+                        "analytics.total_spent": amount
+                    },
+                    "$push": {
+                        "recent_transactions": {
+                            "$each": [transaction_record],
+                            "$slice": -10  # Keeps only the last 10 transactions
+                        }
                     }
                 }
             )

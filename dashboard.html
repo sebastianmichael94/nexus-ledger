@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Nexus Ledger | Live Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 40px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
+        .balance-label { font-size: 14px; color: #666; text-transform: uppercase; }
+        .balance-amount { font-size: 48px; font-weight: bold; color: #2ecc71; margin: 10px 0; }
+        .status-success { color: #2ecc71; font-weight: bold; }
+        .status-failed { color: #e74c3c; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        .user-info { margin-bottom: 20px; border-bottom: 2px solid #f4f7f6; padding-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="user-info">
+        <h2 id="user-name">Loading...</h2>
+        <p id="user-email"></p>
+    </div>
+    
+    <div class="balance-label">Current Balance</div>
+    <div class="balance-amount" id="balance">$0.00</div>
+
+    <h3>Recent Activity</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th>Amount</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="transactions-body">
+            </tbody>
+    </table>
+</div>
+
+<script>
+    async function updateDashboard() {
+        try {
+            // 1. Fetch data from your Django API
+            const response = await fetch('http://127.0.0.1:8000/profile/USER_001/');
+            const data = await response.json();
+
+            // 2. Update the UI text
+            document.getElementById('user-name').innerText = data.name;
+            document.getElementById('user-email').innerText = data.email;
+            document.getElementById('balance').innerText = `$${data.wallet.balance.toLocaleString()}`;
+
+            // 3. Clear and rebuild the transaction table
+            const tableBody = document.getElementById('transactions-body');
+            tableBody.innerHTML = ''; // Clear old rows
+
+            data.recent_transactions.reverse().forEach(tx => {
+                const row = `<tr>
+                    <td>${tx.category}</td>
+                    <td>$${tx.amount}</td>
+                    <td class="${tx.status === 'SUCCESS' ? 'status-success' : 'status-failed'}">${tx.status}</td>
+                </tr>`;
+                tableBody.innerHTML += row;
+            });
+
+        } catch (error) {
+            console.error("Dashboard Sync Error:", error);
+        }
+    }
+
+    // Update every 3 seconds
+    setInterval(updateDashboard, 3000);
+    // Initial call
+    updateDashboard();
+</script>
+
+</body>
+</html>
